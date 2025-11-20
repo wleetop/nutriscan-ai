@@ -26,8 +26,9 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture }) => {
       setError('');
 
       try {
+        // Check if browser supports getUserMedia
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error("Camera API not available");
+            throw new Error("Browser API not supported");
         }
 
         let mediaStream: MediaStream;
@@ -67,10 +68,20 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture }) => {
             console.error("Video play failed", e);
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Camera access error:", err);
         if (mounted) {
-            setError("无法启动摄像头。请检查权限设置或上传照片。\n(Camera failed)");
+            let msg = "无法启动摄像头。\n请尝试上传照片。";
+            
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                msg = "相机权限被拒绝。\n请在浏览器设置中允许访问相机，\n或者直接上传照片。";
+            } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                msg = "未找到相机设备。\n请直接上传照片。";
+            } else if (err.message === "Browser API not supported") {
+                msg = "您的浏览器不支持相机访问\n(或未在安全HTTPS环境下运行)。\n请直接上传照片。";
+            }
+            
+            setError(msg);
         }
       }
     };
@@ -134,24 +145,25 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture }) => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-900 text-white">
-        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6">
              <Camera size={32} className="text-red-500" />
         </div>
-        <p className="text-red-400 mb-8 whitespace-pre-wrap">{error}</p>
+        <h3 className="text-xl font-bold mb-2">相机访问失败</h3>
+        <p className="text-red-200/80 mb-8 whitespace-pre-wrap leading-relaxed max-w-xs text-sm">{error}</p>
         
         <div className="flex flex-col gap-4 w-full max-w-xs">
             <button 
                 onClick={() => fileInputRef.current?.click()} 
-                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
+                className="px-6 py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-900/30"
             >
-                <ImageIcon size={18} /> 上传照片 (Upload)
+                <ImageIcon size={22} /> 上传照片
             </button>
             
             <button 
                 onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
                 className="px-6 py-3 bg-white/10 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-white/20 transition-colors"
             >
-                <RefreshCw size={18} /> 重试 (Retry)
+                <RefreshCw size={18} /> 重试相机
             </button>
         </div>
         <input 

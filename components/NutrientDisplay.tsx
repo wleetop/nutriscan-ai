@@ -1,12 +1,14 @@
 import React from 'react';
 import { FoodAnalysis, Level } from '../types';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { Activity, AlertTriangle, Camera, Droplet, Flame, Info, Leaf } from 'lucide-react';
+import { Activity, AlertTriangle, Camera, Droplet, Flame, Info, Leaf, ArrowLeft, List } from 'lucide-react';
 
 interface NutrientDisplayProps {
   data: FoodAnalysis;
   imageSrc: string;
   onReset: () => void;
+  onBack?: () => void; // New prop for back navigation
+  isHistoryMode?: boolean; // New prop to change UI context
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b']; // Protein (Blue), Carbs (Green), Fat (Orange)
@@ -62,7 +64,7 @@ const MetricCard: React.FC<{
   );
 };
 
-export const NutrientDisplay: React.FC<NutrientDisplayProps> = ({ data, imageSrc, onReset }) => {
+export const NutrientDisplay: React.FC<NutrientDisplayProps> = ({ data, imageSrc, onReset, onBack, isHistoryMode }) => {
   const macroData = [
     { name: '蛋白质', value: data.macros.protein },
     { name: '碳水', value: data.macros.carbs },
@@ -70,7 +72,18 @@ export const NutrientDisplay: React.FC<NutrientDisplayProps> = ({ data, imageSrc
   ];
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white min-h-screen pb-20 animate-fade-in">
+    <div className="w-full max-w-md mx-auto bg-white min-h-screen pb-20 animate-fade-in relative">
+      
+      {/* Back Button Overlay (Visible in History Mode) */}
+      {isHistoryMode && onBack && (
+          <button 
+            onClick={onBack}
+            className="absolute top-4 left-4 z-30 p-2 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors"
+          >
+            <ArrowLeft size={24} />
+          </button>
+      )}
+
       {/* Header Image */}
       <div className="relative h-64 w-full">
         <img src={imageSrc} alt="Analyzed Food" className="w-full h-full object-cover" />
@@ -197,12 +210,21 @@ export const NutrientDisplay: React.FC<NutrientDisplayProps> = ({ data, imageSrc
       
       {/* Floating Action Button */}
       <div className="fixed bottom-6 left-0 right-0 flex justify-center z-20">
-        <button 
-            onClick={onReset}
-            className="bg-gray-900 text-white px-8 py-3 rounded-full shadow-xl hover:bg-black transition-transform active:scale-95 font-medium flex items-center gap-2"
-        >
-            <Camera size={18} /> 扫描下一道
-        </button>
+        {isHistoryMode ? (
+            <button 
+                onClick={onBack}
+                className="bg-gray-800 text-white px-8 py-3 rounded-full shadow-xl hover:bg-gray-900 transition-transform active:scale-95 font-medium flex items-center gap-2"
+            >
+                <List size={18} /> 返回列表
+            </button>
+        ) : (
+            <button 
+                onClick={onReset}
+                className="bg-gray-900 text-white px-8 py-3 rounded-full shadow-xl hover:bg-black transition-transform active:scale-95 font-medium flex items-center gap-2"
+            >
+                <Camera size={18} /> 扫描下一道
+            </button>
+        )}
       </div>
     </div>
   );

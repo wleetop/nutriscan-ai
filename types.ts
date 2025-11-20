@@ -23,9 +23,17 @@ export interface FoodAnalysis {
   description: string;
 }
 
+export interface HistoryItem {
+  id: string;
+  timestamp: number;
+  analysis: FoodAnalysis;
+  imageSrc: string;
+}
+
 export interface AppState {
-  status: 'idle' | 'camera' | 'analyzing' | 'result' | 'error';
+  status: 'idle' | 'camera' | 'analyzing' | 'result' | 'error' | 'history';
   imageSrc: string | null;
   analysis: FoodAnalysis | null;
   error: string | null;
+  isHistoryView?: boolean;
 }

@@ -5,18 +5,29 @@ import { FoodAnalysis } from "../types";
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const SYSTEM_INSTRUCTION = `
-You are an expert nutritionist and dietician. 
-Analyze the provided image of food. 
-Identify the food item and estimate its nutritional content.
-Specifically, I need the Calories, Glycemic Index (GI), and Purine levels (for Gout management).
+You are an expert AI Nutritionist and Dietician.
 
-IMPORTANT: Return all text fields (foodName, description, healthTips, servingSize, purineContent) in Simplified Chinese (简体中文).
+TASK:
+Analyze the provided image to identify the food and estimate its nutritional content.
 
-Determine levels (Low/Medium/High) based on standard medical guidelines:
-- GI: Low (<55), Medium (56-69), High (>70)
-- Purine: Low (<50mg/100g), Medium (50-150mg), High (>150mg)
+LANGUAGE REQUIREMENT:
+You MUST return the following fields in Simplified Chinese (简体中文):
+- foodName (The name of the dish)
+- servingSize (e.g., "1碗", "100克")
+- purineContent (e.g., "50毫克/100克")
+- description (A brief nutritional summary)
+- healthTips (Advice specifically in Chinese)
 
-Return the data in strict JSON format matching the schema.
+ANALYSIS LOGIC:
+1. **Focus**: Identify the single most prominent food item or the main dish in the image.
+2. **Unclear Images**: If the image is blurry or contains multiple dishes, analyze the most central or largest distinct food item. Make a best-guess estimate if details are ambiguous.
+3. **Non-Food Images**: If the image does clearly NOT contain food, return "未检测到食物" as the 'foodName', set all nutrient numbers to 0, and explain in the 'description' that no food was found.
+
+CALCULATION STANDARDS:
+- **GI (Glycemic Index)**: Low (<55), Medium (56-69), High (>70).
+- **Purine**: Low (<50mg/100g), Medium (50-150mg), High (>150mg).
+
+Output must be strict JSON matching the schema.
 `;
 
 export const analyzeFoodImage = async (base64Image: string): Promise<FoodAnalysis> => {
@@ -35,7 +46,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<FoodAnalysi
             },
           },
           {
-            text: "Identify this food and provide nutritional analysis including GI and Purine levels in Chinese.",
+            text: "Identify the main food item in this image and provide a detailed nutritional analysis in Simplified Chinese (简体中文).",
           },
         ],
       },
@@ -45,36 +56,36 @@ export const analyzeFoodImage = async (base64Image: string): Promise<FoodAnalysi
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            foodName: { type: Type.STRING, description: "Name of the food dish or item in Chinese" },
-            calories: { type: Type.NUMBER, description: "Estimated calories per serving" },
-            servingSize: { type: Type.STRING, description: "Estimated serving size analyzed (e.g. '100g', '1 bowl') in Chinese" },
-            giIndex: { type: Type.NUMBER, description: "Estimated Glycemic Index value" },
+            foodName: { type: Type.STRING, description: "Name of the food in Chinese" },
+            calories: { type: Type.NUMBER, description: "Calories per serving (kcal)" },
+            servingSize: { type: Type.STRING, description: "Serving size description in Chinese" },
+            giIndex: { type: Type.NUMBER, description: "Glycemic Index value" },
             giLevel: { 
               type: Type.STRING, 
               enum: ["Low", "Medium", "High"],
-              description: "Category of GI"
+              description: "GI Category"
             },
-            purineContent: { type: Type.STRING, description: "Estimated purine content string (e.g., '120mg/100g') in Chinese" },
+            purineContent: { type: Type.STRING, description: "Purine content string in Chinese" },
             purineLevel: { 
               type: Type.STRING, 
               enum: ["Low", "Medium", "High"],
-              description: "Category of Purine content"
+              description: "Purine Category"
             },
             macros: {
               type: Type.OBJECT,
               properties: {
-                protein: { type: Type.NUMBER, description: "Protein in grams" },
-                carbs: { type: Type.NUMBER, description: "Carbohydrates in grams" },
-                fat: { type: Type.NUMBER, description: "Fat in grams" },
+                protein: { type: Type.NUMBER, description: "Protein (g)" },
+                carbs: { type: Type.NUMBER, description: "Carbs (g)" },
+                fat: { type: Type.NUMBER, description: "Fat (g)" },
               },
               required: ["protein", "carbs", "fat"],
             },
             healthTips: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "3 short, bullet-point health tips or warnings regarding this food in Chinese"
+              description: "3 health tips in Chinese"
             },
-            description: { type: Type.STRING, description: "Brief description of the food nutritional profile in Chinese" }
+            description: { type: Type.STRING, description: "Brief nutritional summary in Chinese" }
           },
           required: ["foodName", "calories", "giIndex", "giLevel", "purineContent", "purineLevel", "macros", "healthTips", "servingSize", "description"],
         },
