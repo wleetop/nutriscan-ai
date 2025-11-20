@@ -1,0 +1,7 @@
+{
+  "name": "Copy of NutriScan AI",
+  "description": "Instant food analysis using AI to determine Calories, GI, Purine levels, and Macros from a photo.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
