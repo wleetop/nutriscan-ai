@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { FoodAnalysis } from "../types";
 
 // Initialize the client with the environment variable
@@ -103,4 +103,39 @@ export const analyzeFoodImage = async (base64Image: string): Promise<FoodAnalysi
     console.error("Gemini Analysis Failed:", error);
     throw error;
   }
+};
+
+export const generateFoodSpeech = async (data: FoodAnalysis): Promise<string | undefined> => {
+    // Construct a script that fits the "Sexy/Teasing" persona requested
+    // We inject the "Say in a..." instruction directly into the text prompt for the TTS model
+    const textToSay = `
+      请用一种极其性感、妩媚、妖娆且充满挑逗的声音说：
+      
+      "嗯~ 让我仔细看看... 亲爱的，你今天要吃${data.foodName}吗？
+      这就对了... 它的热量是${data.calories}千卡... 
+      ${data.healthTips[0]}...
+      虽然有点罪恶，但我不介意你坏一点点...
+      慢慢享用哦，我会一直看着你的..."
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: textToSay }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore is usually a warm female voice
+                    },
+                },
+            },
+        });
+
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        return base64Audio;
+    } catch (error) {
+        console.error("TTS Generation Failed:", error);
+        throw error;
+    }
 };

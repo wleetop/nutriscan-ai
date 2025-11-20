@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FoodAnalysis, Level } from '../types';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { Activity, AlertTriangle, Camera, Droplet, Flame, Info, Leaf, ArrowLeft, List } from 'lucide-react';
+import { Activity, AlertTriangle, Camera, Droplet, Flame, Info, Leaf, ArrowLeft, List, Volume2, Loader2, StopCircle } from 'lucide-react';
+import { generateFoodSpeech } from '../services/geminiService';
 
 interface NutrientDisplayProps {
   data: FoodAnalysis;
@@ -65,11 +66,93 @@ const MetricCard: React.FC<{
 };
 
 export const NutrientDisplay: React.FC<NutrientDisplayProps> = ({ data, imageSrc, onReset, onBack, isHistoryMode }) => {
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+
   const macroData = [
     { name: '蛋白质', value: data.macros.protein },
     { name: '碳水', value: data.macros.carbs },
     { name: '脂肪', value: data.macros.fat },
   ];
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.stop();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  const handlePlayAudio = async () => {
+    if (isPlaying) {
+        if (sourceNodeRef.current) {
+            sourceNodeRef.current.stop();
+            sourceNodeRef.current = null;
+        }
+        setIsPlaying(false);
+        return;
+    }
+
+    setIsAudioLoading(true);
+    try {
+        const base64Audio = await generateFoodSpeech(data);
+        
+        if (!base64Audio) {
+            throw new Error("No audio generated");
+        }
+
+        // Initialize AudioContext
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        }
+        const ctx = audioContextRef.current;
+
+        // Decode PCM Logic manually as standard decodeAudioData expects headers
+        const binaryString = atob(base64Audio);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const dataInt16 = new Int16Array(bytes.buffer);
+        const numChannels = 1;
+        const sampleRate = 24000;
+        const frameCount = dataInt16.length / numChannels;
+        
+        const audioBuffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+        const channelData = audioBuffer.getChannelData(0);
+        
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i] / 32768.0;
+        }
+
+        // Create Source
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        
+        source.onended = () => {
+            setIsPlaying(false);
+        };
+
+        source.start();
+        sourceNodeRef.current = source;
+        setIsPlaying(true);
+
+    } catch (error) {
+        console.error("Failed to play audio", error);
+        alert("无法播放语音");
+    } finally {
+        setIsAudioLoading(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-md mx-auto bg-white min-h-screen pb-20 animate-fade-in relative">
@@ -88,6 +171,24 @@ export const NutrientDisplay: React.FC<NutrientDisplayProps> = ({ data, imageSrc
       <div className="relative h-64 w-full">
         <img src={imageSrc} alt="Analyzed Food" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+        
+        {/* Audio Play Button */}
+        <button 
+            onClick={handlePlayAudio}
+            disabled={isAudioLoading}
+            className={`absolute top-4 right-4 z-30 p-3 backdrop-blur-md rounded-full text-white transition-all shadow-lg ${
+                isPlaying ? 'bg-pink-500/80 animate-pulse' : 'bg-black/30 hover:bg-black/50'
+            } ${isAudioLoading ? 'cursor-wait opacity-80' : ''}`}
+        >
+            {isAudioLoading ? (
+                <Loader2 size={20} className="animate-spin" />
+            ) : isPlaying ? (
+                <StopCircle size={20} />
+            ) : (
+                <Volume2 size={20} />
+            )}
+        </button>
+
         <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
           <h1 className="text-2xl font-bold leading-tight mb-1">{data.foodName}</h1>
           <p className="text-white/80 text-sm flex items-center gap-1">
